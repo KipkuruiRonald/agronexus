@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+python-multipart
+PyJWT
+passlib[bcrypt]
+asyncpg
+supabase
+python-dotenv

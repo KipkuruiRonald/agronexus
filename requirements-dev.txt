@@ -1,0 +1,31 @@
+# Development requirements for VSCode/Django project
+Django==4.2.7
+djangorestframework==3.14.0
+django-cors-headers==4.3.1
+djangorestframework-simplejwt==5.3.0
+Pillow==10.0.1
+django-filter==23.5
+psycopg2-binary==2.9.9
+
+# Development tools
+python-decouple==3.8
+django-debug-toolbar==4.2.0
+django-extensions==3.2.3
+
+# Testing
+pytest==7.4.3
+pytest-django==4.7.0
+factory-boy==3.3.0
+
+# Code quality
+black==23.11.0
+flake8==6.1.0
+isort==5.12.0
+
+# Type checking
+mypy==1.7.1
+types-requests==2.31.0.10
+
+# Documentation
+sphinx==7.2.6
+sphinx-rtd-theme==1.3.0
