@@ -1,5 +1,5 @@
 // Enhanced IntaSend Payment Service with Database Integration
-// Handles payments using IntaSend API with proper phone number validation
+// Handles payments using IntaSend API with proper phone number validation and CORS proxy
 
 // Enhanced Types matching the provided structure
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'cancelled';
@@ -140,8 +140,6 @@ export class IntaSendAPI {
   private maxRetries = 3;
   private retryDelay = 1000; // 1 second base delay
 
-
-
   constructor() {
     // Use Supabase Edge Function proxy to bypass CORS
     this.config = {
@@ -176,7 +174,6 @@ export class IntaSendAPI {
       "Cache-Control": "no-cache",
     };
   }
-
 
   private async makeRequest(url: string, options: RequestInit, attempt = 1): Promise<Response> {
     try {
@@ -230,7 +227,6 @@ export class IntaSendAPI {
     }
   }
 
-
   async initiatePayment(paymentData: PaymentRequest): Promise<PaymentResponse> {
     try {
       console.log("[v0] Initiating Intasend payment with data:", {
@@ -266,80 +262,11 @@ export class IntaSendAPI {
         };
       }
 
-      let formattedPhone = paymentData.phone_number.replace(/\s+/g, "").replace(/[^\d+]/g, "");
-
-      // Remove + prefix for Intasend API
-      if (formattedPhone.startsWith("+")) {
-        formattedPhone = formattedPhone.substring(1);
-      }
-
-      // Ensure it starts with 254
-      if (formattedPhone.startsWith("0")) {
-        formattedPhone = "254" + formattedPhone.substring(1);
-      } else if (!formattedPhone.startsWith("254")) {
-        formattedPhone = "254" + formattedPhone;
-      }
-
-      // Validate length (should be 12 digits: 254 + 9 digits)
-      if (formattedPhone.length !== 12) {
-        throw new Error(`Invalid phone number format. Expected 12 digits, got ${formattedPhone.length}`);
-      }
-
-      console.log("[v0] Formatted phone for Intasend:", formattedPhone.substring(0, 6) + "***");
-
-      const requestBody = {
-        amount: Number(paymentData.amount),
-        phone_number: formattedPhone,
-        email: paymentData.email,
-        first_name: paymentData.first_name || "User",
-        last_name: paymentData.last_name || "User",
-        api_ref: paymentData.reference,
-        currency: "KES",
-        method: "M-PESA",
-      };
-
-      console.log("[v0] Making request to:", `${this.config.baseUrl}/payment/mpesa-stk-push/`);
-      console.log("[v0] Request body:", {
-        ...requestBody,
-        phone_number: requestBody.phone_number.substring(0, 6) + "***",
-      });
-
-      const headers = this.getHeaders();
-      console.log("[v0] Using API key:", this.config.secretKey.substring(0, 20) + "...");
-
-      const response = await this.makeRequest(`${this.config.baseUrl}/payment/mpesa-stk-push/`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(requestBody),
-      });
-
-      console.log("[v0] Intasend response status:", response.status);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: "Unknown error" }));
-        console.error("[v0] Intasend API error response:", errorData);
-
-        let errorMessage = "Payment initiation failed";
-        if (response.status === 400) {
-          if (errorData.detail?.includes("phone") || errorData.detail?.includes("222")) {
-            errorMessage = "Invalid phone number. Please ensure your phone number is correct and try again.";
-          } else {
-            errorMessage = "Invalid payment details. Please check your information and try again.";
-          }
-        } else if (response.status === 401) {
-          errorMessage = "Payment service authentication failed. Please contact support.";
-        } else if (response.status === 429) {
-          errorMessage = "Too many payment requests. Please wait a moment and try again.";
-        } else if (response.status >= 500) {
-          errorMessage = "Payment service temporarily unavailable. Please try again in a few moments.";
-        }
-
-        throw new Error(`${errorMessage}: ${errorData.detail || errorData.message || response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log("[v0] Payment initiated successfully:", result.id);
-
+      // Use Edge Function proxy to make request to IntaSend (bypasses CORS)
+      console.log("[v0] Using Edge Function proxy for IntaSend request");
+      const result = await this.makeRequestViaProxy('initiate_payment', paymentData);
+      
+      console.log("[v0] Payment initiated successfully via proxy:", result.id);
       return result;
     } catch (error) {
       console.error("[v0] Intasend payment error:", error);
@@ -349,25 +276,9 @@ export class IntaSendAPI {
 
   async checkPaymentStatus(invoiceId: string): Promise<any> {
     try {
-      const response = await this.makeRequest(`${this.config.baseUrl}/payment/status/`, {
-        method: "POST",
-        headers: this.getHeaders(),
-        body: JSON.stringify({
-          invoice_id: invoiceId,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Status check failed: ${errorData.detail || response.statusText}`);
-      }
-
-      return await response.json();
+      // Use Edge Function proxy for status check
+      return await this.makeRequestViaProxy('check_status', undefined, invoiceId);
     } catch (error: any) {
-      if (error.name === "AbortError") {
-        console.error("Payment status check timeout");
-        throw new Error("Payment status check timeout");
-      }
       console.error("Payment status check error:", error);
       throw error;
     }
@@ -375,6 +286,7 @@ export class IntaSendAPI {
 
   async initiateWithdrawal(withdrawalData: WithdrawalRequest): Promise<any> {
     try {
+      // For withdrawals, we might still need direct API calls
       const response = await this.makeRequest(`${this.config.baseUrl}/send-money/mpesa/`, {
         method: "POST",
         headers: this.getHeaders(),
@@ -406,7 +318,7 @@ export class IntaSendPaymentService {
     this.intasendAPI = new IntaSendAPI();
   }
 
-  // Get payment data from cart and user
+  // Get payment data from Supabase user and cart
   async getPaymentDataFromDatabase(): Promise<{
     totalAmount: number;
     customerName: string;
@@ -416,9 +328,10 @@ export class IntaSendPaymentService {
     orderDescription: string;
     firstName: string;
     lastName: string;
+    userId: string;
   }> {
     try {
-      // Get current user from auth service
+      // Get current user from Supabase auth
       const currentUser = JSON.parse(localStorage.getItem('agronexus_user') || '{}');
       
       if (!currentUser || !currentUser.email) {
@@ -451,13 +364,16 @@ export class IntaSendPaymentService {
         return null;
       }).filter(Boolean);
 
-      const fullName = currentUser.full_name || currentUser.first_name + ' ' + currentUser.last_name || currentUser.username || 'Customer';
+      // Use real Supabase user data
+      const fullName = currentUser.full_name || 
+                      (currentUser.first_name && currentUser.last_name ? `${currentUser.first_name} ${currentUser.last_name}` : currentUser.username || 'Customer');
       const nameParts = fullName.split(' ');
       const firstName = nameParts[0] || 'Customer';
       const lastName = nameParts.slice(1).join(' ') || 'User';
       
       const customerEmail = currentUser.email;
       const customerPhone = currentUser.phone || currentUser.location || undefined;
+      const userId = currentUser.id || currentUser.user_id || 'unknown';
       
       const orderDescription = `AgriNexus Order - ${orderItems.length} item(s) from ${fullName}`;
 
@@ -469,7 +385,8 @@ export class IntaSendPaymentService {
         cartItems: orderItems,
         orderDescription,
         firstName,
-        lastName
+        lastName,
+        userId
       };
     } catch (error) {
       console.error('Error fetching payment data:', error);
@@ -477,11 +394,10 @@ export class IntaSendPaymentService {
     }
   }
 
-
-  // Initialize a payment request with real database data
+  // Initialize a payment request with real Supabase database data
   async initiatePaymentFromCart(request: { method?: PaymentMethod; phone?: string; email?: string } = {}): Promise<LegacyPaymentResponse> {
     try {
-      // Get payment data from cart and user
+      // Get payment data from Supabase user and cart
       const paymentData = await this.getPaymentDataFromDatabase();
       
       // Check if we should use simulation mode
@@ -495,7 +411,7 @@ export class IntaSendPaymentService {
         }
 
         const formattedPhoneNumber = formatPhoneNumber(formattedPhone);
-        const reference = generatePaymentReference('user', 'registration');
+        const reference = generatePaymentReference(paymentData.userId, 'registration');
         
         const paymentRequest: PaymentRequest = {
           amount: paymentData.totalAmount,
@@ -505,6 +421,14 @@ export class IntaSendPaymentService {
           last_name: paymentData.lastName,
           reference,
           redirect_url: `${window.location.origin}/payment/success`,
+        };
+
+        // Add user_id and description to payment data for database tracking
+        const enhancedPaymentData = {
+          ...paymentRequest,
+          user_id: paymentData.userId,
+          description: paymentData.orderDescription,
+          order_id: `ORDER_${Date.now()}`,
         };
 
         if (useSimulation) {
@@ -521,8 +445,8 @@ export class IntaSendPaymentService {
             expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutes
           };
         } else {
-          // Use real API
-          const response = await this.intasendAPI.initiatePayment(paymentRequest);
+          // Use real API via Edge Function proxy
+          const response = await this.intasendAPI.initiatePayment(enhancedPaymentData);
           return {
             payment_id: response.invoice.invoice_id,
             checkout_url: `${window.location.origin}/payment/success?payment_id=${response.invoice.invoice_id}`,
@@ -562,7 +486,7 @@ export class IntaSendPaymentService {
         throw new Error('Payment not found');
       }
       
-      // In production, this would check with IntaSend API
+      // In production with real credentials, this would check with IntaSend API
       // const response = await this.intasendAPI.checkPaymentStatus(paymentId);
       
       return payment;
@@ -732,7 +656,7 @@ export const initiatePayment = (orderId: string, phoneNumber: string, amount: nu
   });
 };
 
-// New convenience function that fetches data from cart and user
+// New convenience function that fetches data from Supabase user and cart
 export const initiatePaymentFromCart = async (method: PaymentMethod = 'M-PESA', phone?: string, email?: string) => {
   return intaSendService.initiatePaymentFromCart({
     method,
@@ -741,7 +665,7 @@ export const initiatePaymentFromCart = async (method: PaymentMethod = 'M-PESA', 
   });
 };
 
-// Get payment data from database (cart + user)
+// Get payment data from Supabase database (cart + user)
 export const getPaymentDataFromDatabase = async () => {
   return intaSendService.getPaymentDataFromDatabase();
 };

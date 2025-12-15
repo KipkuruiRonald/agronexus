@@ -1,24 +1,25 @@
-import { useState } from "react";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
 import { Chatbot } from "@/components/Chatbot";
+import { Footer } from "@/components/Footer";
+import { Navbar } from "@/components/Navbar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Search, 
-  MapPin, 
-  Star, 
-  ShoppingCart, 
-  Filter, 
-  Grid3X3, 
+import { useToast } from "@/hooks/use-toast";
+import {
+  ChevronDown,
+  Grid3X3,
   List,
+  MapPin,
+  Search,
+  ShoppingCart,
   SlidersHorizontal,
-  ChevronDown
+  Star
 } from "lucide-react";
+import { useState } from "react";
 
-import { useQuery } from "@tanstack/react-query";
+import { useCart } from "@/hooks/useCart";
 import productsService, { Product } from "@/services/products";
+import { useQuery } from "@tanstack/react-query";
 
 const categories = [
   { id: "all", name: "All Products", count: 0 },
@@ -33,19 +34,42 @@ const Marketplace = () => {
   const [activeCategory, setActiveCategory] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
+  const [addingToCart, setAddingToCart] = useState<string | null>(null);
+  const { addToCart } = useCart();
+  const { toast } = useToast();
 
   const { data: products = [], isLoading } = useQuery<Product[]>({
     queryKey: ["products", activeCategory, searchQuery],
     queryFn: () => productsService.getProducts({ category: activeCategory === "all" ? undefined : activeCategory, q: searchQuery }),
-    keepPreviousData: true,
+    placeholderData: [],
   });
+
 
   const filteredProducts = products.filter((product) => {
     const matchesCategory = activeCategory === "all" || (product.category || "").toLowerCase() === activeCategory;
     const matchesSearch = searchQuery === "" || product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.farmer || "").toLowerCase().includes(searchQuery.toLowerCase());
+      (product.farmer_name || "").toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
   });
+
+  const handleAddToCart = async (product: Product) => {
+    setAddingToCart(product.id);
+    try {
+      await addToCart(product.id, 1);
+      toast({
+        title: "Added to cart",
+        description: `${product.name} has been added to your cart.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add item to cart. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setAddingToCart(null);
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -186,33 +210,36 @@ const Marketplace = () => {
                               className="w-full h-full object-cover"
                             />
                           ) : (
+
                             <img
-                              src={product.image_url || product.image}
+                              src={product.image_url || '/assets/hero-farm.jpg'}
                               alt={product.name}
                               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                             />
                           )}
                         <div className="absolute top-3 left-3 flex items-center gap-2">
                           <Badge variant="success">{product.category}</Badge>
-                          {product.organic && <Badge variant="earth">Organic</Badge>}
+                          {product.is_organic && <Badge variant="earth">Organic</Badge>}
                         </div>
                       </div>
                       <CardContent className="p-4 flex-1">
+
                         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                           <MapPin className="w-4 h-4" />
-                          {product.location}
+                          Kenya
                         </div>
                         <h3 className="font-display font-bold text-lg mb-1">
                           {product.name}
                         </h3>
+
                         <p className="text-muted-foreground text-sm mb-3">
-                          by {product.farmer}
+                          by {product.farmer_name}
                         </p>
                         <div className="flex items-center gap-1 mb-3">
                           <Star className="w-4 h-4 fill-harvest text-harvest" />
                           <span className="font-semibold">{product.rating}</span>
                           <span className="text-muted-foreground text-sm">
-                            ({product.reviews} reviews)
+                            ({product.total_reviews} reviews)
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
@@ -222,13 +249,28 @@ const Marketplace = () => {
                             </span>
                             <span className="text-muted-foreground">/{product.unit}</span>
                           </div>
-                          <Button size="sm" variant="hero">
-                            <ShoppingCart className="w-4 h-4" />
-                            Add
+                          <Button 
+                            size="sm" 
+                            variant="hero"
+                            onClick={() => handleAddToCart(product)}
+                            disabled={addingToCart === product.id}
+                          >
+                            {addingToCart === product.id ? (
+                              <>
+                                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                                Adding...
+                              </>
+                            ) : (
+                              <>
+                                <ShoppingCart className="w-4 h-4 mr-2" />
+                                Add to Cart
+                              </>
+                            )}
                           </Button>
                         </div>
+
                         <p className="text-sm text-muted-foreground mt-2">
-                          {product.available_quantity ?? product.available ?? 0} available
+                          {product.available_quantity ?? 0} available
                         </p>
                       </CardContent>
                     </div>

@@ -1,36 +1,33 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
+
 import { Chatbot } from "@/components/Chatbot";
+import { Footer } from "@/components/Footer";
+import { Navbar } from "@/components/Navbar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { 
-  TrendingUp, 
-  TrendingDown,
-  Package,
-  ShoppingCart,
-  DollarSign,
-  Users,
-  BarChart3,
-  Cloud,
-  Sun,
-  Droplets,
-  Wind,
-  Plus,
-  Bell,
-  Settings,
-  Calendar,
-  ArrowUpRight,
-  Leaf
-} from "lucide-react";
-import dashboardService from "@/services/dashboard";
-import weatherService from "@/services/weather";
-import tasksService from "@/services/tasks";
 import authService from "@/services/auth";
+import dashboardService from "@/services/dashboard";
 import productsService from "@/services/products";
-import { AuthModal } from "@/components/AuthModal";
+import tasksService from "@/services/tasks";
+import weatherService from "@/services/weather";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowUpRight,
+  BarChart3,
+  Bell,
+  Calendar,
+  Cloud,
+  Droplets,
+  Leaf,
+  Plus,
+  Settings,
+  ShoppingCart,
+  Sun,
+  TrendingDown,
+  TrendingUp,
+  Wind
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 
 
@@ -39,9 +36,9 @@ const Dashboard = () => {
   const { data: recent = [] } = useQuery({ queryKey: ["dashboard", "recentOrders"], queryFn: dashboardService.getRecentOrders });
 
   const queryClient = useQueryClient();
+
   const isAuth = authService.isAuthenticated();
   const user = authService.getUser();
-  const [authOpen, setAuthOpen] = useState(false);
   const [showAddProductForm, setShowAddProductForm] = useState(false);
   const [newProduct, setNewProduct] = useState({ name: '', description: '', category: '', price: '', unit: '', available_quantity: '' });
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -67,8 +64,9 @@ const Dashboard = () => {
   });
   
 
+
   const createProductMutation = useMutation({
-    mutationFn: (formData: FormData) => productsService.createProduct(formData),
+    mutationFn: (productData: any) => productsService.createProduct(productData),
     onSuccess: () => {
       // invalidates product lists, etc.
       queryClient.invalidateQueries({ queryKey: ['products'] });
@@ -84,8 +82,9 @@ const Dashboard = () => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
   });
 
+
   const deleteTaskMutation = useMutation({
-    mutationFn: (id: number) => tasksService.deleteTask(id),
+    mutationFn: (id: string) => tasksService.deleteTask(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
   });
 
@@ -126,40 +125,36 @@ const Dashboard = () => {
       <Navbar />
       <main className="pt-20">
         <div className="container mx-auto px-4 py-8">
+
           {/* Header */}
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-8">
             <div>
+
               <h1 className="font-display font-bold text-3xl mb-2">
                 {isAuth && user ? (
-                  <>Welcome back, {user.first_name ?? user.username}! 👋</>
+                  <>Welcome back, {user.first_name ?? user.username}!</>
                 ) : (
-                  <>Welcome to AgroNexus 👋</>
+                  <>Welcome to AgroNexus</>
                 )}
               </h1>
               <p className="text-muted-foreground">
-                {isAuth ? "Here's what's happening with your farm today." : "Sign in to view your dashboard and tasks."}
+                {isAuth ? "Here's what's happening with your farm today." : "Explore the agricultural marketplace and manage your farm operations."}
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              {!isAuth ? (
-                <Button variant="hero" onClick={() => setAuthOpen(true)}>
-                  Sign In
+            {isAuth && (
+              <div className="flex items-center gap-3">
+                <Button variant="outline" size="icon">
+                  <Bell className="w-5 h-5" />
                 </Button>
-              ) : (
-                <>
-                  <Button variant="outline" size="icon">
-                    <Bell className="w-5 h-5" />
-                  </Button>
-                  <Button variant="outline" size="icon">
-                    <Settings className="w-5 h-5" />
-                  </Button>
-                  <Button variant="hero" onClick={() => setShowAddProductForm(true)}>
-                    <Plus className="w-5 h-5 mr-2" />
-                    Add Product
-                  </Button>
-                </>
-              )}
-            </div>
+                <Button variant="outline" size="icon">
+                  <Settings className="w-5 h-5" />
+                </Button>
+                <Button variant="hero" onClick={() => setShowAddProductForm(true)}>
+                  <Plus className="w-5 h-5 mr-2" />
+                  Add Product
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Stats Grid */}
@@ -468,12 +463,20 @@ const Dashboard = () => {
                     </label>
                   </div>
                   <div className="flex gap-2 mt-2">
+
                     <Button variant="hero" onClick={() => {
-                      const formData = new FormData();
-                      Object.entries(newProduct).forEach(([k,v]) => formData.append(k, String(v || '')));
-                      if(imageFile) formData.append('image', imageFile);
-                      if(videoFile) formData.append('video', videoFile);
-                      createProductMutation.mutate(formData);
+                      const productData = {
+                        name: newProduct.name,
+                        description: newProduct.description,
+                        category: newProduct.category,
+                        price: parseFloat(newProduct.price) || 0,
+                        unit: newProduct.unit,
+                        available_quantity: parseInt(newProduct.available_quantity) || 0,
+                        is_organic: false,
+                        image_url: imageFile ? URL.createObjectURL(imageFile) : '/assets/hero-farm.jpg',
+                        video_url: videoFile ? URL.createObjectURL(videoFile) : undefined,
+                      };
+                      createProductMutation.mutate(productData);
                     }}>{createProductMutation.isPending ? 'Creating...' : 'Create'}</Button>
                     <Button variant="outline" onClick={() => setShowAddProductForm(false)}>Cancel</Button>
                   </div>
@@ -481,9 +484,9 @@ const Dashboard = () => {
               </div>
             </div>
           )}
+
       </main>
       <Footer />
-      <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
       <Chatbot userType="farmer" location="Kenya" />
     </div>
   );

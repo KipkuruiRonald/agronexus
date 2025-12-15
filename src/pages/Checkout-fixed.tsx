@@ -9,13 +9,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useCart } from "@/hooks/useCart";
 
 
-import { initiatePaymentFromCart, intaSendService, PaymentMethod } from "@/services/payments";
+import { initiatePaymentFromCart, intaSendService, PaymentMethod } from "@/services/payments-simple";
 import {
-  CheckCircle,
-  CreditCard,
-  Loader2,
-  Shield,
-  Smartphone
+    CheckCircle,
+    CreditCard,
+    Loader2,
+    Shield,
+    Smartphone
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -32,8 +32,6 @@ const Checkout = () => {
   const [formData, setFormData] = useState({
     phone: "",
     email: "",
-    firstName: "",
-    lastName: "",
     paymentMethod: "M-PESA" as PaymentMethod,
   });
   
@@ -72,8 +70,6 @@ const Checkout = () => {
       // Clear required fields when switching methods
       phone: method !== "M-PESA" ? "" : prev.phone,
       email: method !== "CARD" ? "" : prev.email,
-      firstName: method !== "M-PESA" ? "" : prev.firstName,
-      lastName: method !== "M-PESA" ? "" : prev.lastName,
     }));
   };
 
@@ -84,15 +80,6 @@ const Checkout = () => {
         toast({
           title: "Phone number required",
           description: "Please enter your M-PESA phone number.",
-          variant: "destructive",
-        });
-        return false;
-      }
-      
-      if (!formData.firstName || !formData.lastName) {
-        toast({
-          title: "Name required",
-          description: "Please enter your first and last name for M-PESA payments.",
           variant: "destructive",
         });
         return false;
@@ -157,17 +144,8 @@ const Checkout = () => {
     setPaymentStatus("processing");
 
     try {
-      // Store form data in localStorage for enhanced payment processing
-      const paymentFormData = {
-        phone: formData.phone,
-        email: formData.email,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        method: formData.paymentMethod,
-      };
-      localStorage.setItem('agronexus_payment_form', JSON.stringify(paymentFormData));
-
-      // Use enhanced payment method with database integration
+      // Use enhanced payment method with Supabase database integration
+      // User data (name, email) will be automatically pulled from Supabase
       const response = await initiatePaymentFromCart(
         formData.paymentMethod,
         formData.phone || undefined,
@@ -188,8 +166,6 @@ const Checkout = () => {
             const payment = intaSendService.getStoredPayment(response.payment_id);
             if (payment) {
               payment.status = "completed";
-              payment.first_name = formData.firstName;
-              payment.last_name = formData.lastName;
               intaSendService['savePaymentDetails'](payment);
             }
             handlePaymentSuccess(response.payment_id);
@@ -391,47 +367,34 @@ const Checkout = () => {
                       </button>
                     </div>
 
+                    {/* User Information Notice */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                      <div className="flex items-start gap-3">
+                        <Shield className="w-5 h-5 text-blue-600 mt-0.5" />
+                        <div>
+                          <h4 className="font-medium text-blue-900">User Information</h4>
+                          <p className="text-sm text-blue-700 mt-1">
+                            Your name and email will be automatically retrieved from your Supabase profile 
+                            to complete the payment securely.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
 
                     {/* Payment Form */}
                     <div className="space-y-4">
                       {formData.paymentMethod === "M-PESA" && (
-                        <>
-                          <div>
-                            <Label htmlFor="phone">M-PESA Phone Number</Label>
-                            <Input
-                              id="phone"
-                              type="tel"
-                              placeholder="254700000000"
-                              value={formData.phone}
-                              onChange={(e) => handleInputChange("phone", e.target.value)}
-                              className="mt-1"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="firstName">First Name</Label>
-                              <Input
-                                id="firstName"
-                                type="text"
-                                placeholder="John"
-                                value={formData.firstName}
-                                onChange={(e) => handleInputChange("firstName", e.target.value)}
-                                className="mt-1"
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="lastName">Last Name</Label>
-                              <Input
-                                id="lastName"
-                                type="text"
-                                placeholder="Doe"
-                                value={formData.lastName}
-                                onChange={(e) => handleInputChange("lastName", e.target.value)}
-                                className="mt-1"
-                              />
-                            </div>
-                          </div>
-                        </>
+                        <div>
+                          <Label htmlFor="phone">M-PESA Phone Number</Label>
+                          <Input
+                            id="phone"
+                            type="tel"
+                            placeholder="254700000000"
+                            value={formData.phone}
+                            onChange={(e) => handleInputChange("phone", e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
                       )}
 
                       {formData.paymentMethod === "CARD" && (

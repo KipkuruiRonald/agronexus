@@ -1,13 +1,8 @@
 // Real Data Products Service - Supabase Integration
 // Replace src/services/products.ts with this version
 
-import { createClient } from '@supabase/supabase-js';
 
-// Supabase configuration
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { supabase } from '../lib/supabase';
 
 export interface Product {
   id: string;

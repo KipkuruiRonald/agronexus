@@ -1,5 +1,5 @@
-import { api } from "./api";
-
+// Serverless Authentication Service
+// This service works entirely client-side without requiring a backend
 
 export interface User {
   id: string;
@@ -26,8 +26,44 @@ export interface AuthResponse {
 class AuthService {
   private tokenKey = "agronexus_token";
   private userKey = "agronexus_user";
+  private usersKey = "agronexus_users"; // Store registered users locally
 
+  /**
+   * Generate a simple token (for demo purposes)
+   */
+  private generateToken(): string {
+    return btoa(Date.now().toString() + Math.random().toString());
+  }
 
+  /**
+   * Generate a simple user ID
+   */
+  private generateUserId(): string {
+    return 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  /**
+   * Get all registered users from localStorage
+   */
+  private getStoredUsers(): Record<string, User> {
+    const users = localStorage.getItem(this.usersKey);
+    return users ? JSON.parse(users) : {};
+  }
+
+  /**
+   * Store users in localStorage
+   */
+  private storeUsers(users: Record<string, User>): void {
+    localStorage.setItem(this.usersKey, JSON.stringify(users));
+  }
+
+  /**
+   * Hash password (simple demo hashing)
+   */
+  private hashPassword(password: string): string {
+    // Simple demo hashing - in production use proper crypto
+    return btoa(password + 'agronexus_salt_2024');
+  }
 
   /**
    * Register new user
@@ -43,36 +79,51 @@ class AuthService {
     location?: string;
   }): Promise<AuthResponse> {
     try {
-      // Map frontend fields to backend schema - send exactly what backend expects
-      const backendData = {
-        username: data.username,
+      // Check if user already exists
+      const users = this.getStoredUsers();
+      const existingUser = Object.values(users).find(user => 
+        user.email === data.email || user.username === data.username
+      );
+
+      if (existingUser) {
+        throw new Error('User with this email or username already exists');
+      }
+
+      // Create new user
+      const userId = this.generateUserId();
+      const now = new Date().toISOString();
+      
+      const user: User = {
+        id: userId,
         email: data.email,
-        password: data.password,
-        user_type: data.user_type,
+        username: data.username,
+        full_name: `${data.first_name || ''} ${data.last_name || ''}`.trim() || data.username,
         first_name: data.first_name,
         last_name: data.last_name,
-        farm_name: data.user_type === "farmer" ? data.farm_name : null,
+        user_type: data.user_type,
+        farm_name: data.user_type === "farmer" ? data.farm_name : undefined,
         location: data.location,
-        phone: null,
-        address: data.location || null,
-        profile_image_url: null
+        created_at: now,
+        updated_at: now,
       };
 
-      const response = await api.post("/auth/register", backendData);
-      const { token, user } = response.data;
-      
-      // Ensure full_name exists (backend should provide it, but add fallback)
-      if (!user.full_name && (user.first_name || user.last_name)) {
-        user.full_name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
-      }
-      if (!user.full_name) {
-        user.full_name = user.username || user.email || 'User';
-      }
-      
-      // Store user locally; token is also set as HttpOnly cookie by the server for security
+      // Store user
+      users[data.email] = user;
+      this.storeUsers(users);
+
+      // Store password separately (in production, this would be server-side)
+      const passwords = JSON.parse(localStorage.getItem('agronexus_passwords') || '{}');
+      passwords[data.email] = this.hashPassword(data.password);
+      localStorage.setItem('agronexus_passwords', JSON.stringify(passwords));
+
+      // Generate token and store session
+      const token = this.generateToken();
       this.setUser(user);
-      if (token) this.setToken(token);
-      return response.data;
+      this.setToken(token);
+
+      console.log('✅ User registered successfully:', user.email);
+
+      return { user, token };
     } catch (error) {
       console.error("Registration error:", error);
       throw error;
@@ -84,21 +135,28 @@ class AuthService {
    */
   async login(email: string, password: string): Promise<AuthResponse> {
     try {
-      const response = await api.post("/auth/login", { email, password });
-      const { token, user } = response.data;
+      // Get stored users and passwords
+      const users = this.getStoredUsers();
+      const passwords = JSON.parse(localStorage.getItem('agronexus_passwords') || '{}');
       
-      // Ensure full_name exists (backend should provide it, but add fallback)
-      if (!user.full_name && (user.first_name || user.last_name)) {
-        user.full_name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+      const user = users[email];
+      if (!user) {
+        throw new Error('User not found');
       }
-      if (!user.full_name) {
-        user.full_name = user.username || user.email || 'User';
+
+      const storedPassword = passwords[email];
+      if (!storedPassword || storedPassword !== this.hashPassword(password)) {
+        throw new Error('Invalid password');
       }
-      
-      // Store user locally; server sets HttpOnly cookie for the token
+
+      // Generate new token and store session
+      const token = this.generateToken();
       this.setUser(user);
-      if (token) this.setToken(token);
-      return response.data;
+      this.setToken(token);
+
+      console.log('✅ User logged in successfully:', user.email);
+
+      return { user, token };
     } catch (error) {
       console.error("Login error:", error);
       throw error;
@@ -110,17 +168,10 @@ class AuthService {
    */
   async getMe(): Promise<User> {
     try {
-      const response = await api.get("/auth/me");
-      const user = response.data.user;
-      
-      // Ensure full_name exists (backend should provide it, but add fallback)
-      if (!user.full_name && (user.first_name || user.last_name)) {
-        user.full_name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+      const user = this.getUser();
+      if (!user) {
+        throw new Error('No user logged in');
       }
-      if (!user.full_name) {
-        user.full_name = user.username || user.email || 'User';
-      }
-      
       return user;
     } catch (error) {
       console.error("Get user error:", error);
@@ -133,8 +184,8 @@ class AuthService {
    */
   async logout(): Promise<void> {
     try {
-      await api.post("/auth/logout");
       this.clearAuth();
+      console.log('✅ User logged out successfully');
     } catch (error) {
       console.error("Logout error:", error);
       this.clearAuth();
@@ -174,7 +225,7 @@ class AuthService {
    * Check if user is authenticated
    */
   isAuthenticated(): boolean {
-    return !!this.getToken() || !!this.getUser();
+    return !!this.getToken() && !!this.getUser();
   }
 
   /**
@@ -197,6 +248,83 @@ class AuthService {
   clearAuth(): void {
     localStorage.removeItem(this.tokenKey);
     localStorage.removeItem(this.userKey);
+  }
+
+  /**
+   * Update user profile
+   */
+  async updateProfile(updates: Partial<User>): Promise<User> {
+    try {
+      const currentUser = this.getUser();
+      if (!currentUser) {
+        throw new Error('No user logged in');
+      }
+
+      const updatedUser = { ...currentUser, ...updates, updated_at: new Date().toISOString() };
+      
+      // Update in stored users
+      const users = this.getStoredUsers();
+      users[currentUser.email] = updatedUser;
+      this.storeUsers(users);
+      
+      // Update current session
+      this.setUser(updatedUser);
+      
+      console.log('✅ Profile updated successfully');
+      return updatedUser;
+    } catch (error) {
+      console.error("Profile update error:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Demo function to seed some test users
+   */
+  async seedTestUsers(): Promise<void> {
+    const users = this.getStoredUsers();
+    
+    // Only seed if no users exist
+    if (Object.keys(users).length === 0) {
+      const testUsers = [
+        {
+          email: 'farmer@agronexus.com',
+          password: 'password123',
+          data: {
+            username: 'john_farmer',
+            email: 'farmer@agronexus.com',
+            password: 'password123',
+            user_type: 'farmer' as const,
+            first_name: 'John',
+            last_name: 'Farmer',
+            farm_name: 'Green Valley Farm',
+            location: 'Nairobi, Kenya'
+          }
+        },
+        {
+          email: 'buyer@agronexus.com',
+          password: 'password123',
+          data: {
+            username: 'jane_buyer',
+            email: 'buyer@agronexus.com',
+            password: 'password123',
+            user_type: 'buyer' as const,
+            first_name: 'Jane',
+            last_name: 'Buyer',
+            location: 'Mombasa, Kenya'
+          }
+        }
+      ];
+
+      for (const testUser of testUsers) {
+        await this.register(testUser.data);
+      }
+      
+      // Clear the current session after seeding
+      this.clearAuth();
+      
+      console.log('✅ Test users seeded successfully');
+    }
   }
 }
 
