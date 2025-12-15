@@ -1,0 +1,12 @@
+# Pylance Python Path Configuration
+# This file helps VSCode's Pylance understand the project structure
+
+# Add the agro_backend directory to Python path
+agro_backend/
+
+# Add Django site-packages directory (this will be auto-detected)
+# but we specify it explicitly for clarity
+# site-packages/
+
+# Add current directory for local imports
+.

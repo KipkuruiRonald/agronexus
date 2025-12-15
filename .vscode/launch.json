@@ -1,0 +1,87 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Django: Runserver",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/agro_backend/manage.py",
+            "args": [
+                "runserver",
+                "--noreload"
+            ],
+            "django": true,
+            "cwd": "${workspaceFolder}/agro_backend",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/agro_backend",
+                "DJANGO_SETTINGS_MODULE": "agro_backend.settings"
+            },
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+        },
+        {
+            "name": "Django: Shell",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/agro_backend/manage.py",
+            "args": [
+                "shell"
+            ],
+            "django": true,
+            "cwd": "${workspaceFolder}/agro_backend",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/agro_backend",
+                "DJANGO_SETTINGS_MODULE": "agro_backend.settings"
+            },
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Django: Makemigrations",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/agro_backend/manage.py",
+            "args": [
+                "makemigrations"
+            ],
+            "django": true,
+            "cwd": "${workspaceFolder}/agro_backend",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/agro_backend",
+                "DJANGO_SETTINGS_MODULE": "agro_backend.settings"
+            },
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Django: Migrate",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/agro_backend/manage.py",
+            "args": [
+                "migrate"
+            ],
+            "django": true,
+            "cwd": "${workspaceFolder}/agro_backend",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/agro_backend",
+                "DJANGO_SETTINGS_MODULE": "agro_backend.settings"
+            },
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Django: Test",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/agro_backend/manage.py",
+            "args": [
+                "test"
+            ],
+            "django": true,
+            "cwd": "${workspaceFolder}/agro_backend",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/agro_backend",
+                "DJANGO_SETTINGS_MODULE": "agro_backend.settings"
+            },
+            "console": "integratedTerminal"
+        }
+    ]
+}

@@ -41,16 +41,10 @@ export const getProducts = async (filters?: ProductFilters): Promise<Product[]> 
   try {
     console.log('[Real API] Fetching products with filters:', filters);
     
+
     let query = supabase
       .from('products')
-      .select(`
-        *,
-        farmer:users!farmer_id (
-          username,
-          email,
-          full_name
-        )
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
 
     // Apply filters
@@ -111,16 +105,10 @@ export const getProduct = async (id: string): Promise<Product | null> => {
   try {
     console.log('[Real API] Fetching product:', id);
 
+
     const { data, error } = await supabase
       .from('products')
-      .select(`
-        *,
-        farmer:users!farmer_id (
-          username,
-          email,
-          full_name
-        )
-      `)
+      .select('*')
       .eq('id', id)
       .single();
 

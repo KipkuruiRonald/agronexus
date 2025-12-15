@@ -3,7 +3,8 @@
 
 // Enhanced Types matching the provided structure
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'cancelled';
-export type PaymentMethod = 'M-PESA' | 'CARD' | 'BANK_TRANSFER';
+
+export type PaymentMethod = 'MPESA' | 'CREDIT_CARD' | 'BANK';
 
 // Enhanced IntaSend API types
 export interface PaymentRequest {
@@ -51,8 +52,9 @@ export type LegacyPaymentRequest = {
   amount: number;
   currency: string;
   method: PaymentMethod;
-  phone?: string; // Required for M-PESA
-  email?: string; // Required for CARD
+
+  phone?: string; // Required for MPESA
+  email?: string; // Required for CREDIT_CARD
   customerName?: string; // Customer full name
   description?: string;
   orderId?: string;
@@ -237,7 +239,8 @@ export class IntaSendAPI {
           invoice: {
             invoice_id: `sim_invoice_${Date.now()}`,
             state: "pending",
-            provider: "M-PESA",
+
+            provider: "MPESA",
             charges: 0,
             net_amount: paymentData.amount,
             currency: "KES",
@@ -285,7 +288,8 @@ export class IntaSendAPI {
         last_name: paymentData.last_name || "User",
         api_ref: paymentData.reference,
         currency: "KES",
-        method: "M-PESA",
+
+        method: "MPESA",
       };
 
       const baseUrl = this.getBaseUrl();
@@ -490,11 +494,14 @@ export class IntaSendPaymentService {
       // Check if we should use simulation mode
       const useSimulation = INTASEND_SECRET_KEY === 'YOUR_SECRET_KEY' || !INTASEND_SECRET_KEY;
       
-      if (request.method === 'M-PESA' || !request.method) {
-        // Use enhanced IntaSend API for M-PESA
+
+
+      if (request.method === 'MPESA' || !request.method) {
+        // Use enhanced IntaSend API for MPESA
         const formattedPhone = request.phone || paymentData.customerPhone;
         if (!formattedPhone) {
-          throw new Error('Phone number is required for M-PESA payments');
+
+          throw new Error('Phone number is required for MPESA payments');
         }
 
         const formattedPhoneNumber = formatPhoneNumber(formattedPhone);
@@ -510,6 +517,7 @@ export class IntaSendPaymentService {
           redirect_url: `${window.location.origin}/payment/success`,
         };
 
+
         if (useSimulation) {
           // Use simulation mode
           const response = await this.intasendAPI.initiatePayment(paymentRequest);
@@ -519,7 +527,7 @@ export class IntaSendPaymentService {
             status: 'pending' as PaymentStatus,
             amount: paymentData.totalAmount,
             currency: 'KES',
-            method: 'M-PESA',
+            method: 'MPESA',
             created_at: new Date().toISOString(),
             expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutes
           };
@@ -532,7 +540,7 @@ export class IntaSendPaymentService {
             status: 'pending' as PaymentStatus,
             amount: paymentData.totalAmount,
             currency: 'KES',
-            method: 'M-PESA',
+            method: 'MPESA',
             created_at: new Date().toISOString(),
             expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutes
           };
@@ -583,7 +591,8 @@ export class IntaSendPaymentService {
         return this.simulatePayment(request);
       }
 
-      if (request.method === 'M-PESA') {
+
+      if (request.method === 'MPESA') {
         // Use enhanced IntaSend API
         const formattedPhone = formatPhoneNumber(request.phone || '');
         const reference = request.orderId || generatePaymentReference('user', 'registration');
@@ -724,7 +733,8 @@ export const intasendAPI = new IntaSendAPI();
 export const intaSendService = new IntaSendPaymentService();
 
 // Convenience functions for backward compatibility
-export const initiatePayment = (orderId: string, phoneNumber: string, amount: number, method: PaymentMethod = 'M-PESA') => {
+
+export const initiatePayment = (orderId: string, phoneNumber: string, amount: number, method: PaymentMethod = 'MPESA') => {
   return intaSendService.initiatePayment({
     amount,
     currency: 'KES',
@@ -736,7 +746,8 @@ export const initiatePayment = (orderId: string, phoneNumber: string, amount: nu
 };
 
 // New convenience function that fetches data from Supabase user and cart
-export const initiatePaymentFromCart = async (method: PaymentMethod = 'M-PESA', phone?: string, email?: string) => {
+
+export const initiatePaymentFromCart = async (method: PaymentMethod = 'MPESA', phone?: string, email?: string) => {
   return intaSendService.initiatePaymentFromCart({
     method,
     phone,

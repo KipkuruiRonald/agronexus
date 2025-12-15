@@ -1,0 +1,55 @@
+{
+  "python.defaultInterpreterPath": "python",
+  "python.analysis.extraPaths": [
+    "./agro_backend"
+  ],
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.autoSearchPaths": true,
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.stubPath": "typings",
+  "python.analysis.typeshedPaths": [],
+  "python.analysis.useLibraryCodeForTypes": true,
+  "python.analysis.completeFunctionParens": true,
+  "python.analysis.autoFormatStrings": true,
+  "python.analysis.indexing": true,
+  "python.analysis.packageIndexDepths": [
+    {
+      "name": "django",
+      "depth": 10
+    },
+    {
+      "name": "rest_framework",
+      "depth": 10
+    },
+    {
+      "name": "django_filters",
+      "depth": 10
+    }
+  ],
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": false,
+  "python.linting.flake8Enabled": false,
+  "python.linting.mypyEnabled": false,
+  "python.formatting.provider": "none",
+  "python.testing.pytestEnabled": false,
+  "python.testing.unittestEnabled": false,
+  "python.testing.nosetestsEnabled": false,
+  "files.associations": {
+    "*.py": "python"
+  },
+  "editor.formatOnSave": false,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": "explicit"
+  },
+  "python.analysis.symbolsHierarchyDepthLimit": 10,
+  "python.analysis.userFileIndexingLimit": -1,
+  "cursorpyright.analysis.autoImportCompletions": true,
+  "cursorpyright.analysis.autoSearchPaths": true,
+  "cursorpyright.analysis.diagnosticMode": "workspace",
+  "cursorpyright.analysis.extraPaths": [
+    "./agro_backend"
+  ],
+  "cursorpyright.analysis.stubPath": "typings",
+  "cursorpyright.analysis.typeshedPaths": [],
+  "cursorpyright.analysis.useLibraryCodeForTypes": true
+}
